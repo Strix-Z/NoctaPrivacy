@@ -1,7 +1,5 @@
-// NoctaPrivacy v0.1 - Win32 window capture -> D3D11 blur -> Spout2.
+// NoctaPrivacy v0.1.2 - always-on blurred Spout2 overlay for Streamlabs Desktop.
 // Read-only visual capture. No OpenProcess/ReadProcessMemory/injection/PKA IPC.
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <d3d11.h>
 #include <dxgi.h>
@@ -228,7 +226,7 @@ public:
         if (!frame) return false;
         auto size = frame.ContentSize();
         if (size.Width < 1 || size.Height < 1) return false;
-        auto native = frame.Surface().as<IDirect3DDxgiInterfaceAccess>();
+        auto native = frame.Surface().as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
         winrt::com_ptr<ID3D11Texture2D> texture;
         hr(native->GetInterface(winrt::guid_of<ID3D11Texture2D>(), texture.put_void()), "Get captured texture");
         gpu.copyFrame(texture.get(), static_cast<unsigned>(size.Width), static_cast<unsigned>(size.Height));
@@ -240,7 +238,7 @@ public:
 };
 
 int wmain(int argc, wchar_t** argv) {
-    constexpr int HOTKEY_BLUR = 100, HOTKEY_BLACK = 101, HOTKEY_QUIT = 102;
+    constexpr int HOTKEY_BLACK = 101, HOTKEY_QUIT = 102;
     try {
         winrt::init_apartment(winrt::apartment_type::multi_threaded);
         std::wstring title = argc > 1 ? argv[1] : L"PokeAlliance";
@@ -258,20 +256,19 @@ int wmain(int argc, wchar_t** argv) {
         // Never show uncaptured content on startup.
         gpu.blackout();
         if (!sender.SendTexture(gpu.output())) throw std::runtime_error("Initial Spout2 SendTexture failed");
-        bool blur = false, emergency = false, alive = true;
+        bool emergency = false, alive = true, hasCapturedFrame = false;
         float strength = 7.0f; // ~28-pixel max sample displacement at source resolution.
-        bool hot1 = RegisterHotKey(nullptr, HOTKEY_BLUR, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F10) != 0;
+        // Streamlabs controls overlay show/hide; do not register F10 here.
         bool hot2 = RegisterHotKey(nullptr, HOTKEY_BLACK, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F11) != 0;
         bool hot3 = RegisterHotKey(nullptr, HOTKEY_QUIT, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F12) != 0;
-        if (!hot1 || !hot2 || !hot3) std::cerr << "WARNING: one or more hotkeys could not register. Check for conflicts.\n";
-        std::cout << "Sender: NoctaPrivacy. Ctrl+Alt+F10 = blur, F11 = BLACKOUT, F12 = exit.\n";
-        std::cout << "IMPORTANT: hide the original Game Capture in Streamlabs before streaming.\n";
+        if (!hot2 || !hot3) std::cerr << "WARNING: one or more hotkeys could not register. Check for conflicts.\n";
+        std::cout << "Sender: NoctaPrivacy (always blurred). Ctrl+Alt+F11 = BLACKOUT, F12 = exit.\n";
+        std::cout << "In Streamlabs, keep Game Capture below Spout2; use source visibility to show/hide blur.\n";
         auto lastCapture = Clock::now();
         while (alive) {
             MSG m{};
             while (PeekMessageW(&m, nullptr, 0, 0, PM_REMOVE)) {
                 if (m.message == WM_HOTKEY) {
-                    if (m.wParam == HOTKEY_BLUR) { blur = !blur; std::cout << "Blur " << (blur ? "ON" : "OFF") << "\n"; }
                     if (m.wParam == HOTKEY_BLACK) { emergency = !emergency; std::cout << "Emergency opaque " << (emergency ? "ON" : "OFF") << "\n"; }
                     if (m.wParam == HOTKEY_QUIT) { alive = false; }
                 } else if (m.message == WM_QUIT) alive = false;
@@ -283,18 +280,17 @@ int wmain(int argc, wchar_t** argv) {
                 try { received = capture.read(gpu); }
                 catch (winrt::hresult_error const&) { /* Fail closed below. */ }
             }
-            if (received) lastCapture = Clock::now();
-            bool stale = capture.closed() || !IsWindow(hwnd) || IsIconic(hwnd) ||
+            if (received) { lastCapture = Clock::now(); hasCapturedFrame = true; }
+            bool stale = !hasCapturedFrame || capture.closed() || !IsWindow(hwnd) || IsIconic(hwnd) ||
                 (Clock::now() - lastCapture > std::chrono::milliseconds(1000));
             if (!gpu.valid()) break;
             if (emergency || stale) gpu.blackout();
-            else gpu.process(blur, strength);
+            else gpu.process(true, strength);
             if (!sender.SendTexture(gpu.output())) std::cerr << "Spout send failed (check receiver/GPU).\n";
             std::this_thread::sleep_for(std::chrono::milliseconds(33));
         }
         // Best effort on normal exit. Streamlabs may freeze the last Spout frame.
         gpu.blackout(); sender.SendTexture(gpu.output());
-        if (hot1) UnregisterHotKey(nullptr, HOTKEY_BLUR);
         if (hot2) UnregisterHotKey(nullptr, HOTKEY_BLACK);
         if (hot3) UnregisterHotKey(nullptr, HOTKEY_QUIT);
         sender.ReleaseSender(); sender.CloseDirectX11();
