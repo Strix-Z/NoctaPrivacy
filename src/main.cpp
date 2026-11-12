@@ -256,7 +256,7 @@ int wmain(int argc, wchar_t** argv) {
         // Never show uncaptured content on startup.
         gpu.blackout();
         if (!sender.SendTexture(gpu.output())) throw std::runtime_error("Initial Spout2 SendTexture failed");
-        bool blur = false, emergency = false, alive = true;
+        bool blur = false, emergency = false, alive = true, hasCapturedFrame = false;
         float strength = 7.0f; // ~28-pixel max sample displacement at source resolution.
         bool hot1 = RegisterHotKey(nullptr, HOTKEY_BLUR, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F10) != 0;
         bool hot2 = RegisterHotKey(nullptr, HOTKEY_BLACK, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F11) != 0;
@@ -281,8 +281,8 @@ int wmain(int argc, wchar_t** argv) {
                 try { received = capture.read(gpu); }
                 catch (winrt::hresult_error const&) { /* Fail closed below. */ }
             }
-            if (received) lastCapture = Clock::now();
-            bool stale = capture.closed() || !IsWindow(hwnd) || IsIconic(hwnd) ||
+            if (received) { lastCapture = Clock::now(); hasCapturedFrame = true; }
+            bool stale = !hasCapturedFrame || capture.closed() || !IsWindow(hwnd) || IsIconic(hwnd) ||
                 (Clock::now() - lastCapture > std::chrono::milliseconds(1000));
             if (!gpu.valid()) break;
             if (emergency || stale) gpu.blackout();
