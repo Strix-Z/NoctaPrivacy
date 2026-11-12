@@ -1,6 +1,6 @@
-# NoctaPrivacy v0.1.1 — prototipo para Streamlabs Desktop
+# NoctaPrivacy v0.1.2 — capa de desenfoque permanente para Streamlabs Desktop
 
-**Estado: código fuente beta/no compilado ni probado en Windows en el entorno de creación.** No se incluye un `.exe` precompilado. Puede necesitar ajustes según Visual Studio, Windows SDK, Spout2 o las restricciones de captura del juego. **Primero haz pruebas en grabaciones locales; no uses la versión beta para ocultar secretos durante una emisión real.**
+**Estado: prototipo beta.** La versión anterior compiló en GitHub Actions; los cambios de v0.1.2 requieren una nueva compilación y pruebas en tu PC. **No confíes en un blur como único método de ocultar datos privados durante un directo.**
 
 ## ¿Lee la memoria de PKA?
 
@@ -24,7 +24,7 @@ No: el código solo enumera títulos de ventanas mediante `EnumWindows` y `GetWi
 5. Descomprime el artifact en tu PC: incluirá `NoctaPrivacy.exe`, instrucciones y la licencia del componente Spout2.
 6. Abre PKA en modo ventana o borderless, ejecuta el EXE en PowerShell con `./NoctaPrivacy.exe "PokeAlliance"`, y en Streamlabs agrega **Spout2 Capture** con sender **NoctaPrivacy**.
 
-**Estado de validación:** el workflow y las dependencias están preparados, pero **no se ha ejecutado todavía un build de MSVC en Windows**. Que GitHub genere el ejecutable confirma compilación, **no** compatibilidad funcional ni seguridad para privacidad en un directo. Si el workflow falla, abre la etapa roja y conserva las primeras líneas de error para corregirlas.
+**Estado de validación:** la versión anterior compiló correctamente con MSVC en GitHub Actions. Cada cambio nuevo requiere compilarse de nuevo. Que GitHub genere el ejecutable **no** demuestra compatibilidad funcional ni protección fiable de datos privados en un directo.
 
 > GitHub Actions usa Windows virtual de GitHub para compilar; el EXE después se ejecuta **localmente en tu PC** y captura la ventana de PKA local. GitHub no recibe el video del juego por este procedimiento.
 
@@ -53,6 +53,12 @@ cmake -S . -B build -A x64 -G "Visual Studio 17 2022"
 cmake --build build --config Release --target NoctaPrivacy
 ```
 
+## Uso: fuente de desenfoque siempre activa
+
+**Diseño deseado:** la captura original de PKA permanece VISIBLE en Streamlabs, con una fuente `Spout2 Capture` llamada `NoctaPrivacy` colocada JUSTO ENCIMA. NoctaPrivacy procesa fotogramas y publica una imagen ya desenfocada permanentemente, incluso cuando la fuente está oculta en Streamlabs. Activar o desactivar el efecto equivale únicamente a mostrar/ocultar la fuente Spout2, **sin filtros ni atajos del ejecutable para cambiar el blur**.
+
+Esto **sigue usando Windows.Graphics.Capture sobre una ventana de PKA** (título de ventana y `HWND`), aunque NO abre el proceso, lee memoria privada ni inyecta código. Si se requiere *cero consultas a la ventana del juego*, esta implementación no cumple esa condición.
+
 ## Ejecutar y conectar
 
 1. Abre PKA primero y usa modo ventana o *borderless*. El título exacto varía: si contiene PokeAlliance, ejecuta:
@@ -64,18 +70,21 @@ cmake --build build --config Release --target NoctaPrivacy
    Si no reconoce la ventana, prueba con una parte del título que veas en la barra de PKA, entre comillas. La búsqueda no diferencia mayúsculas.
 2. Abre Streamlabs Desktop → **Sources → + → Spout2 Capture**.
 3. Elige `NoctaPrivacy` como sender y **Opaque** como composite mode.
-4. Comprueba la imagen y **oculta o elimina de la escena el Game Capture original de PKA**. Si queda visible, la privacidad fallará aunque NoctaPrivacy funcione. No necesitas duplicar una escena.
-5. No inicies directo hasta verificar en grabación local que la fuente llega correctamente y no queda ningún original por debajo o encima.
+4. En el panel de fuentes de Streamlabs deja **Game Capture (PKA)** ABAJO y **Spout2 Capture (NoctaPrivacy)** ARRIBA. No ocultes ni elimines Game Capture.
+5. Ajusta el tamaño, recorte y posición de Spout2 Capture para cubrir exactamente la región del juego en el lienzo: la captura de ventana de Windows puede incluir bordes diferentes a Game Capture. Verifica con textos/contornos para que no queden franjas sin desenfocar.
+6. Oculta Spout2 Capture mediante el icono del ojo: se verá PKA normal. Muéstrala de nuevo y verás PKA desenfocado. No necesitas duplicar escenas ni añadir filtros a Streamlabs.
+7. Para una tecla, entra en **Settings → Hotkeys**, localiza la fuente `NoctaPrivacy` en la escena y asigna Mostrar/Ocultar (por ejemplo `Ctrl+Alt+F10`), siempre que no choque con otro atajo.
+8. No inicies directo hasta probar la superposición en una grabación local. **Si NoctaPrivacy se cierra o Spout falla mientras la capa debería ocultar algo, la captura original puede quedar visible.** Usa además una fuente de color opaco independiente para privacidad sensible.
 
 ## Atajos
 
 | Atajo | Acción |
 |---|---|
-| `Ctrl+Alt+F10` | Alternar desenfoque real (aproximación gaussiana en GPU) |
+| `Ctrl+Alt+F10` | Configurable en **Streamlabs**, para Mostrar/Ocultar la fuente `NoctaPrivacy` (ya no lo utiliza el EXE) |
 | `Ctrl+Alt+F11` | Alternar pantalla opaca negra (emergencia) |
 | `Ctrl+Alt+F12` | Cerrar NoctaPrivacy |
 
-La intensidad por defecto es 7.0, ajustable editando `float strength = 7.0f;` en `src/main.cpp` y recompilando. No todos los textos quedarán irreconocibles: la pantalla opaca es la única opción segura para contraseñas y datos confidenciales.
+El desenfoque se aplica **constantemente** a la señal Spout2; la intensidad por defecto es 7.0, ajustable editando `float strength = 7.0f;` en `src/main.cpp` y recompilando. No todos los textos quedarán irreconocibles: la pantalla opaca es la única opción segura para contraseñas y datos confidenciales.
 
 ## Funcionamiento y limitaciones
 
@@ -94,7 +103,7 @@ La intensidad por defecto es 7.0, ajustable editando `float strength = 7.0f;` en
 ## Validación mínima antes de producción
 
 1. Prueba fuente Spout y captura visual.
-2. Graba en Streamlabs 60 segundos y activa/desactiva blur varias veces.
+2. Graba en Streamlabs 60 segundos y muestra/oculta la fuente Spout2 varias veces. La imagen de Spout2 debe estar permanentemente borrosa, sin necesidad de enviar comandos a NoctaPrivacy.
 3. Prueba F11 con un texto grande: nunca debe aparecer bajo el rectángulo negro.
 4. Minimiza PKA, cierra PKA, cambia resolución y deja el programa sin fotogramas. Verifica qué aparece en una grabación.
 5. Cierra NoctaPrivacy y verifica si Streamlabs congela la última imagen. Si ocurre, no dependas del sender como barrera final; activa una fuente opaca independiente.
