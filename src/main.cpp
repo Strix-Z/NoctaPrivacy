@@ -1,7 +1,5 @@
 // NoctaPrivacy v0.1 - Win32 window capture -> D3D11 blur -> Spout2.
 // Read-only visual capture. No OpenProcess/ReadProcessMemory/injection/PKA IPC.
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <d3d11.h>
 #include <dxgi.h>
@@ -228,7 +226,7 @@ public:
         if (!frame) return false;
         auto size = frame.ContentSize();
         if (size.Width < 1 || size.Height < 1) return false;
-        auto native = frame.Surface().as<IDirect3DDxgiInterfaceAccess>();
+        auto native = frame.Surface().as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
         winrt::com_ptr<ID3D11Texture2D> texture;
         hr(native->GetInterface(winrt::guid_of<ID3D11Texture2D>(), texture.put_void()), "Get captured texture");
         gpu.copyFrame(texture.get(), static_cast<unsigned>(size.Width), static_cast<unsigned>(size.Height));
