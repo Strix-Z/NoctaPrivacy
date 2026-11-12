@@ -1,5 +1,7 @@
 # NoctaPrivacy v0.1.2 — capa de desenfoque permanente para Streamlabs Desktop
 
+![description](https://raw.githubusercontent.com/Strix-Z/NoctaPrivacy/ac46b58403c45a15ea034dbdfc862d088f165a2a/Example.png)
+
 **Estado: prototipo beta.** La versión anterior compiló en GitHub Actions; los cambios de v0.1.2 requieren una nueva compilación y pruebas en tu PC. **No confíes en un blur como único método de ocultar datos privados durante un directo.**
 
 ## ¿Lee la memoria de PKA?
