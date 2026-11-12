@@ -1,0 +1,60 @@
+name: Build NoctaPrivacy (Windows x64)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - 'build.ps1'
+      - '.github/workflows/windows-build.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - 'build.ps1'
+      - '.github/workflows/windows-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-x64:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - name: Download source code
+        uses: actions/checkout@v4
+
+      - name: Show available tools
+        shell: pwsh
+        run: |
+          cmake --version
+          git --version
+
+      - name: Build Release x64 with MSVC 2022
+        shell: pwsh
+        run: |
+          .\build.ps1
+
+      - name: Package executable and notes
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item build/Release/NoctaPrivacy.exe dist/NoctaPrivacy.exe
+          Copy-Item README.md dist/README.md
+          Copy-Item THIRD_PARTY_SPOUT_LICENSE.txt dist/THIRD_PARTY_SPOUT_LICENSE.txt
+          if (-not (Test-Path dist/NoctaPrivacy.exe)) {
+            throw 'Missing Release executable'
+          }
+          Get-Item dist/NoctaPrivacy.exe | Select-Object Name,Length
+          Get-FileHash dist/NoctaPrivacy.exe -Algorithm SHA256 | Format-List
+
+      - name: Upload compiled Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoctaPrivacy-windows-x64
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14

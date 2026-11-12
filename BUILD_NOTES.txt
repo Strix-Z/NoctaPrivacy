@@ -1,0 +1,9 @@
+Compilacion en Windows: NO VERIFICADA en la maquina del autor, que ejecuta Linux.
+Este ZIP incluye solamente FUENTES originales del prototipo, no Spout2 ni un binario.
+Si existen errores de compilacion, conserva la salida de Visual Studio para corregirlos.
+Riesgo de privacidad: usar un overlay opaco de Streamlabs para secretos.
+La ventana de PKA NO se accede por memoria: se captura via Windows.Graphics.Capture.
+
+GitHub Actions: workflow .github/workflows/windows-build.yml (Windows 2022).
+Spout2 tag actualizado a 2.007.017, verificado en GitHub, no 2.007.018.
+El workflow aun NO ha sido ejecutado en el runner de GitHub; version v0.1.1 beta.

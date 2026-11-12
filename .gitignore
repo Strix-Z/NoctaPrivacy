@@ -1,0 +1,8 @@
+# Build artifacts and external third-party SDK checkout
+/build/
+/external/Spout2/
+/dist/
+/.vs/
+*.user
+*.suo
+*.VC.db
